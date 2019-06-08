@@ -2,6 +2,8 @@
 import argparse
 import os
 import deep_sort_app
+import pdb
+import warnings
 
 
 def parse_args():
@@ -39,9 +41,10 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
     os.makedirs(args.output_dir, exist_ok=True)
     sequences = os.listdir(args.mot_dir)
+    # pdb.set_trace()
     for sequence in sequences:
         print("Running sequence %s" % sequence)
         sequence_dir = os.path.join(args.mot_dir, sequence)

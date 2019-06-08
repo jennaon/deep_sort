@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import numpy as np
 from sklearn.utils.linear_assignment_ import linear_assignment
 from . import kalman_filter
+import pdb
 
 
 INFTY_COST = 1e+5
@@ -52,9 +53,12 @@ def min_cost_matching(
     if len(detection_indices) == 0 or len(track_indices) == 0:
         return [], track_indices, detection_indices  # Nothing to match.
 
-    cost_matrix = distance_metric(
-        tracks, detections, track_indices, detection_indices)
+    # if max_distance == float('inf'):
+    #     pdb.set_trace()
+
+    cost_matrix = distance_metric(tracks, detections, track_indices, detection_indices)
     cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
+
     indices = linear_assignment(cost_matrix)
 
     matches, unmatched_tracks, unmatched_detections = [], [], []
@@ -112,8 +116,9 @@ def matching_cascade(
         * A list of matched track and detection indices.
         * A list of unmatched track indices.
         * A list of unmatched detection indices.
-
     """
+    # if max_distance == float('inf'):
+    #     pdb.set_trace()
     if track_indices is None:
         track_indices = list(range(len(tracks)))
     if detection_indices is None:
@@ -133,12 +138,88 @@ def matching_cascade(
             continue
 
         matches_l, _, unmatched_detections = \
-            min_cost_matching(
-                distance_metric, max_distance, tracks, detections,
+            min_cost_matching(distance_metric, max_distance, tracks, detections,
                 track_indices_l, unmatched_detections)
         matches += matches_l
     unmatched_tracks = list(set(track_indices) - set(k for k, _ in matches))
     return matches, unmatched_tracks, unmatched_detections
+
+def reviving_cascade(
+        distance_metric, max_distance, cascade_depth, tracks_dic, detections,
+        track_indices=None, detection_indices=None):
+    """Run matching cascade.
+
+    Parameters
+    ----------
+    distance_metric : Callable[List[Track], List[Detection], List[int], List[int]) -> ndarray
+        The distance metric is given a list of tracks and detections as well as
+        a list of N track indices and M detection indices. The metric should
+        return the NxM dimensional cost matrix, where element (i, j) is the
+        association cost between the i-th track in the given track indices and
+        the j-th detection in the given detection indices.
+    max_distance : float
+        Gating threshold. Associations with cost larger than this value are
+        disregarded.
+    cascade_depth: int
+        The cascade depth, should be se to the maximum track age.
+    tracks : Dictionary {track_id: track}
+        A list of predicted tracks at the current time step.
+    detections : List[detection.Detection]
+        A list of detections at the current time step.
+    track_indices : Optional[List[int]]
+        List of track indices that maps rows in `cost_matrix` to tracks in
+        `tracks` (see description above). Defaults to all tracks.
+    detection_indices : Optional[List[int]]
+        List of detection indices that maps columns in `cost_matrix` to
+        detections in `detections` (see description above). Defaults to all
+        detections.
+
+    Returns
+    -------
+    (List[(int, int)], List[int], List[int])
+        Returns a tuple with the following three entries:
+        * A list of matched track and detection indices.
+        * A list of unmatched track indices.
+        * A list of unmatched detection indices.
+    """
+    tracks_ids = list(tracks_dic.keys())
+    tracks = []
+    tracks = [tracks_dic[id] for id in tracks_ids]
+    # for i in range(len(tracks_ids)):
+    #     tracks.append(tracks_dic[i])
+
+    # if max_distance == float('inf'):
+    #     pdb.set_trace()
+    if track_indices is None:
+        track_indices = list(range(len(tracks)))
+    if detection_indices is None:
+        detection_indices = list(range(len(detections)))
+
+    unmatched_detections = detection_indices
+    matches = []
+    for level in range(cascade_depth):
+        if len(unmatched_detections) == 0:  # No detections left
+            break
+
+        track_indices_l = [
+            k for k in track_indices
+            if tracks[k].time_since_update == 1 + level
+        ]
+        if len(track_indices_l) == 0:  # Nothing to match at this level
+            continue
+
+        matches_l, _, unmatched_detections = \
+            min_cost_matching(distance_metric, max_distance, tracks, detections,
+                track_indices_l, unmatched_detections)
+        matches += matches_l
+
+    #convert track index to track id
+    # pdb.set_trace()
+    match_return = []
+    for i in range(len(matches)):
+        match_return.append((tracks_ids[i], matches[i][1]))
+    unmatched_tracks = list(set(track_indices) - set(k for k, _ in matches))
+    return match_return, unmatched_tracks, unmatched_detections
 
 
 def gate_cost_matrix(

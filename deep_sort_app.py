@@ -12,6 +12,9 @@ from application_util import visualization
 from deep_sort import nn_matching
 from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker
+import warnings
+import pdb
+
 
 
 def gather_sequence_info(sequence_dir, detection_file):
@@ -165,7 +168,10 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
 
     def frame_callback(vis, frame_idx):
         print("Processing frame %05d" % frame_idx)
-
+        # print('length: %d' %(len(tracker.tracks)))
+        #for debugging
+        # if frame_idx % 400 ==0: #stop every 300 iterations
+        #     pdb.set_trace()
         # Load image and generate detections.
         detections = create_detections(
             seq_info["detections"], frame_idx, min_detection_height)
@@ -181,6 +187,10 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
         # Update tracker.
         tracker.predict()
         tracker.update(detections)
+        # if frame_idx >= 253:
+        #     pdb.set_trace()
+        # tracker.update_w_mhkf(detections)
+        # pdb.set_trace()
 
         # Update visualization.
         if display:
@@ -231,7 +241,7 @@ def parse_args():
     parser.add_argument(
         "--output_file", help="Path to the tracking output file. This file will"
         " contain the tracking results on completion.",
-        default="/tmp/hypotheses.txt")
+        default="./hypotheses.txt")
     parser.add_argument(
         "--min_confidence", help="Detection confidence threshold. Disregard "
         "all detections that have a confidence lower than this value.",
@@ -257,6 +267,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
     run(
         args.sequence_dir, args.detection_file, args.output_file,
         args.min_confidence, args.nms_max_overlap, args.min_detection_height,

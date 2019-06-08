@@ -1,5 +1,5 @@
 # vim: expandtab:ts=4:sw=4
-
+import pdb
 
 class TrackState:
     """
@@ -122,6 +122,9 @@ class Track:
         self.mean, self.covariance = kf.predict(self.mean, self.covariance)
         self.age += 1
         self.time_since_update += 1
+        # if self.track_id == 131:
+        #     print(len(self.features[0]))
+        #     pdb.set_trace()
 
     def update(self, kf, detection):
         """Perform Kalman filter measurement update step and update the feature
@@ -138,11 +141,14 @@ class Track:
         self.mean, self.covariance = kf.update(
             self.mean, self.covariance, detection.to_xyah())
         self.features.append(detection.feature)
-
         self.hits += 1
         self.time_since_update = 0
         if self.state == TrackState.Tentative and self.hits >= self._n_init:
             self.state = TrackState.Confirmed
+            # if self.track_id == 131:
+            #     print(len(self.features[0]))
+            #     pdb.set_trace()#at around frame 253
+
 
     def mark_missed(self):
         """Mark this track as missed (no association at the current time step).

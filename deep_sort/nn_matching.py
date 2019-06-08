@@ -1,5 +1,6 @@
 # vim: expandtab:ts=4:sw=4
 import numpy as np
+import pdb
 
 
 def _pdist(a, b):
@@ -117,12 +118,9 @@ class NearestNeighborDistanceMetric(object):
     samples : Dict[int -> List[ndarray]]
         A dictionary that maps from target identities to the list of samples
         that have been observed so far.
-
     """
 
     def __init__(self, metric, matching_threshold, budget=None):
-
-
         if metric == "euclidean":
             self._metric = _nn_euclidean_distance
         elif metric == "cosine":
@@ -133,6 +131,7 @@ class NearestNeighborDistanceMetric(object):
         self.matching_threshold = matching_threshold
         self.budget = budget
         self.samples = {}
+        self.stashed_samples = {}
 
     def partial_fit(self, features, targets, active_targets):
         """Update the distance metric with new data.
@@ -145,12 +144,11 @@ class NearestNeighborDistanceMetric(object):
             An integer array of associated target identities.
         active_targets : List[int]
             A list of targets that are currently present in the scene.
-
         """
         for feature, target in zip(features, targets):
             self.samples.setdefault(target, []).append(feature)
-            if self.budget is not None:
-                self.samples[target] = self.samples[target][-self.budget:]
+            # if self.budget is not None:
+            #     self.samples[target] = self.samples[target][-self.budget:]
         self.samples = {k: self.samples[k] for k in active_targets}
 
     def distance(self, features, targets):
@@ -172,6 +170,34 @@ class NearestNeighborDistanceMetric(object):
 
         """
         cost_matrix = np.zeros((len(targets), len(features)))
+
         for i, target in enumerate(targets):
             cost_matrix[i, :] = self._metric(self.samples[target], features)
+        return cost_matrix
+
+    def distance_against_saved_features(self, features, stashed_features):
+        """Compute distance between features and targets.
+
+        Parameters
+        ----------
+        features : ndarray
+            An NxM matrix of N features of dimensionality M. (detections)
+        stashed_features : List[int]
+            A list of targets to match the given `features` against.
+            (my track info)
+
+        Returns
+        -------
+        ndarray
+            Returns a cost matrix of shape len(targets), len(features), where
+            element (i, j) contains the closest squared distance between
+            `targets[i]` and `features[j]`.
+
+        """
+        # print('i got here bitches!!')
+        cost_matrix = np.zeros((len(stashed_features), len(features)))
+
+        for i, stash in enumerate(stashed_features):
+            # pdb.set_trace()
+            cost_matrix[i, :] = self._metric(stash, features)
         return cost_matrix
